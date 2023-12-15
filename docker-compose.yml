@@ -36,7 +36,7 @@ services:
     command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf', '-p', '${DB_PORT}']
 
   graphql-server:
-    image: joystream/query-node:1.3.0
+    image: joystream/query-node:1.6.0
     container_name: graphql-server
     restart: unless-stopped
     environment:
@@ -81,7 +81,7 @@ services:
       "
 
   processor:
-    image: joystream/query-node:1.3.0
+    image: joystream/query-node:1.6.0
     container_name: processor
     restart: unless-stopped
     environment:
@@ -238,7 +238,7 @@ services:
       OTEL_SERVICE_NAME: caddy
 
   distributor:
-    image: joystream/distributor-node:1.3.1
+    image: joystream/distributor-node:1.4.0
     container_name: distributor
     restart: unless-stopped
     volumes:
@@ -258,14 +258,12 @@ services:
       OTEL_APPLICATION: distributor-node
       OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
       OTEL_RESOURCE_ATTRIBUTES: service.name=argus,deployment.environment=production
-      # Change NODE_ENV to production after updating to new version when following PR is merged
-      # https://github.com/Joystream/joystream/pull/4810
-      NODE_ENV: prod
+      NODE_ENV: production
     entrypoint: ['/joystream/distributor-node/runner.sh']
     command: ['start']
 
   storage:
-    image: joystream/storage-node:3.5.0
+    image: joystream/storage-node:3.7.1
     container_name: storage
     restart: unless-stopped
     volumes:
