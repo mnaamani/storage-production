@@ -121,7 +121,7 @@ services:
       "
 
   indexer:
-    image: joystream/hydra-indexer:v5.0.0-alpha.1
+    image: joystream/hydra-indexer:v5.0.0-alpha.7
     container_name: indexer
     restart: unless-stopped
     environment:
