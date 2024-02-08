@@ -14,7 +14,7 @@ services:
       --rpc-methods Safe
       --rpc-cors all
       --base-path /chain
-      --chain /joystream/joy-mainnet.json
+      --chain joy-mainnet
     ports:
       - "127.0.0.1:9944:9944"
       - "127.0.0.1:9933:9933"
