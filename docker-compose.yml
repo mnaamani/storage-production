@@ -14,7 +14,7 @@ services:
       --rpc-methods Safe
       --rpc-cors all
       --base-path /chain
-      --chain /joystream/joy-mainnet.json
+      --chain joy-mainnet
     ports:
       - "127.0.0.1:9944:9944"
       - "127.0.0.1:9933:9933"
@@ -28,7 +28,8 @@ services:
       - "127.0.0.1:${DB_PORT}:${DB_PORT}"
     volumes:
       - ${DATABASE_VOLUME}:/var/lib/postgresql/data
-      - ./postgres.conf:/etc/postgresql/postgresql.conf
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+    shm_size: 1.1gb
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
@@ -120,7 +121,7 @@ services:
       "
 
   indexer:
-    image: joystream/hydra-indexer:v5.0.0-alpha.1
+    image: joystream/hydra-indexer:v5.0.0-alpha.7
     container_name: indexer
     restart: unless-stopped
     environment:
@@ -128,7 +129,7 @@ services:
       - DB_PASS=${DB_PASS}
       - DB_USER=${DB_USER}
       - DB_PORT=${DB_PORT}
-      - INDEXER_WORKERS=5
+      - WORKERS_NUMBER=5
       - REDIS_URI=redis://redis:6379/0
       - WS_PROVIDER_ENDPOINT_URI=${JOYSTREAM_NODE_WS}
       - DB_HOST=db
@@ -238,7 +239,7 @@ services:
       OTEL_SERVICE_NAME: caddy
 
   distributor:
-    image: joystream/distributor-node:1.4.0
+    image: joystream/distributor-node:2.0.0
     container_name: distributor
     restart: unless-stopped
     volumes:
@@ -263,7 +264,7 @@ services:
     command: ['start']
 
   storage:
-    image: joystream/storage-node:3.7.1
+    image: joystream/storage-node:4.0.0
     container_name: storage
     restart: unless-stopped
     volumes:
@@ -287,17 +288,74 @@ services:
       --port 3333
       --uploads /data
       --sync
-      --syncInterval 1
+      --syncInterval 10
       --syncWorkersNumber 20
-      --queryNodeEndpoint http://graphql-server:${GRAPHQL_SERVER_PORT}/graphql
+      --storageSquidEndpoint http://squid-graphql-server:4352/graphql
       --apiUrl ${JOYSTREAM_NODE_WS}
       --logFilePath /logs
       --logFileChangeFrequency none
       --keyFile /keystore/keyfile.json
       "
 
+  squid-db:
+    container_name: squid-db
+    hostname: squid-db
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SQUID_DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      PGPORT: ${SQUID_DB_PORT}
+    ports:
+      - '127.0.0.1:${SQUID_DB_PORT}:${SQUID_DB_PORT}'
+    command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf', '-p', '${SQUID_DB_PORT}']
+    shm_size: 1.1g # A bit higher than `shared_buffers` value in postgres.conf
+    volumes:
+      - squid-db-data:/var/lib/postgresql/data
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+
+  squid-processor:
+    image: joystream/storage-squid:1.4.2
+    container_name: squid-processor
+    hostname: squid-processor
+    restart: unless-stopped
+    environment:
+      - DB_NAME=${SQUID_DB_NAME}
+      - DB_PASS=${DB_PASS}
+      - DB_USER=${DB_USER}
+      - DB_PORT=${SQUID_DB_PORT}
+      - DB_HOST=squid-db
+      - GQL_PORT=${SQUID_GQL_PORT}
+      - ARCHIVE_GATEWAY_URL=${SQUID_ARCHIVE_GATEWAY_URL}
+      - RPC_ENDPOINT=${JOYSTREAM_NODE_WS}
+    depends_on:
+      - squid-db
+    command: >
+      sh -c "npx squid-typeorm-migration apply && \
+             node -r dotenv-expand/config lib/processor.js"
+
+  squid-graphql-server:
+    image: joystream/storage-squid:1.4.2
+    container_name: squid-graphql-server
+    hostname: squid-graphql-server
+    restart: unless-stopped
+    environment:
+      - DB_NAME=${SQUID_DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_PORT=${SQUID_DB_PORT}
+      - DB_HOST=squid-db
+      - GQL_PORT=${SQUID_GQL_PORT}
+    depends_on:
+      - squid-db
+    command: ['npm', 'run', 'graphql-server-start']
+    ports:
+      - '${SQUID_GQL_PORT}:${SQUID_GQL_PORT}'
+
 volumes:
   prometheus-data: {}
+  squid-db-data: {}
 
 networks:
   default:

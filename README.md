@@ -55,6 +55,14 @@ You can track its progress by looking at the logs:
 docker logs --tail 100 --follow processor
 ```
 
+Start the storage squid processor and graphql servers
+
+```sh
+docker compose up -d squid-db
+docker compose up -d squid-processor
+docker compose up -d squid-graphql-server
+```
+
 ### Distributor Node
 To run a Distributor node follow these [instructions](./docs/DISTRIBUTOR.md)
 
